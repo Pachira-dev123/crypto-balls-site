@@ -7,134 +7,137 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.18.0/matter.min.js"></script>
     <script type="module">
-        // Thirdweb SDK
+        // Import must be at the top level of a module
         import { ThirdwebSDK } from "https://cdn.jsdelivr.net/npm/@thirdweb-dev/sdk@4/dist/sdk.mjs";
 
-        // DOM Elements
-        const connectWalletBtn = document.getElementById('connectWalletBtn');
-        const sendPaymentBtn = document.getElementById('sendPaymentBtn');
-        const walletAddressEl = document.getElementById('walletAddress');
-        const scene = document.getElementById('scene');
-        
-        // Thirdweb Configuration
-        const sdk = new ThirdwebSDK("ethereum"); // You can change this to your preferred network
-        const receiverAddress = "0xD1dc9E27bd29030DB4DA28DBA7c1Bf088fC5204f"; // <-- This is your wallet address
-        const usdtContractAddress = "0xdAC17F958D2ee523a2206206994597C13D831ec7"; // USDT on Ethereum Mainnet
+        // --- Wait for the entire page to load before running scripts ---
+        document.addEventListener('DOMContentLoaded', () => {
 
-        let walletAddress = null;
+            // DOM Elements
+            const connectWalletBtn = document.getElementById('connectWalletBtn');
+            const sendPaymentBtn = document.getElementById('sendPaymentBtn');
+            const walletAddressEl = document.getElementById('walletAddress');
+            const scene = document.getElementById('scene');
+            
+            // Thirdweb Configuration
+            const sdk = new ThirdwebSDK("ethereum"); // You can change this to your preferred network
+            const receiverAddress = "0xD1dc9E27bd29030DB4DA28DBA7c1Bf088fC5204f"; // <-- This is your wallet address
+            const usdtContractAddress = "0xdAC17F958D2ee523a2206206994597C13D831ec7"; // USDT on Ethereum Mainnet
 
-        // --- Matter.js Falling Balls Animation ---
-        const { Engine, Render, Runner, World, Bodies, Mouse, MouseConstraint } = Matter;
+            let walletAddress = null;
 
-        const engine = Engine.create();
-        const world = engine.world;
-        const render = Render.create({
-            element: scene,
-            engine: engine,
-            options: {
-                width: window.innerWidth,
-                height: window.innerHeight,
-                wireframes: false,
-                background: '#111827'
-            }
-        });
+            // --- Matter.js Falling Balls Animation ---
+            // Destructure properties from the global Matter object
+            const { Engine, Render, Runner, World, Bodies, Mouse, MouseConstraint } = Matter;
 
-        Render.run(render);
-        const runner = Runner.create();
-        Runner.run(runner, engine);
-
-        // Ground
-        const ground = Bodies.rectangle(window.innerWidth / 2, window.innerHeight + 50, window.innerWidth, 100, { isStatic: true });
-        World.add(world, ground);
-        
-        // Walls
-        const leftWall = Bodies.rectangle(-50, window.innerHeight / 2, 100, window.innerHeight, { isStatic: true });
-        const rightWall = Bodies.rectangle(window.innerWidth + 50, window.innerHeight / 2, 100, window.innerHeight, { isStatic: true });
-        World.add(world, [leftWall, rightWall]);
-
-
-        // Add mouse control
-        const mouse = Mouse.create(render.canvas);
-        const mouseConstraint = MouseConstraint.create(engine, {
-            mouse: mouse,
-            constraint: {
-                stiffness: 0.2,
-                render: {
-                    visible: false
-                }
-            }
-        });
-        World.add(world, mouseConstraint);
-
-        // Function to add balls
-        function addBall() {
-            const x = Math.random() * window.innerWidth;
-            const radius = Math.random() * 20 + 10;
-            const ball = Bodies.circle(x, -50, radius, {
-                restitution: 0.8,
-                render: {
-                    fillStyle: `hsl(${Math.random() * 360}, 100%, 70%)`
+            const engine = Engine.create();
+            const world = engine.world;
+            const render = Render.create({
+                element: scene,
+                engine: engine,
+                options: {
+                    width: window.innerWidth,
+                    height: window.innerHeight,
+                    wireframes: false,
+                    background: '#111827'
                 }
             });
-            World.add(world, ball);
-        }
 
-        // Add balls periodically
-        setInterval(addBall, 200);
-        
-        // Handle window resize
-        window.addEventListener('resize', () => {
-            render.canvas.width = window.innerWidth;
-            render.canvas.height = window.innerHeight;
-            Matter.Body.setPosition(ground, { x: window.innerWidth / 2, y: window.innerHeight + 50 });
-            Matter.Body.setPosition(leftWall, { x: -50, y: window.innerHeight / 2 });
-            Matter.Body.setPosition(rightWall, { x: window.innerWidth + 50, y: window.innerHeight / 2 });
-        });
+            Render.run(render);
+            const runner = Runner.create();
+            Runner.run(runner, engine);
+
+            // Ground
+            const ground = Bodies.rectangle(window.innerWidth / 2, window.innerHeight + 50, window.innerWidth, 100, { isStatic: true });
+            World.add(world, ground);
+            
+            // Walls
+            const leftWall = Bodies.rectangle(-50, window.innerHeight / 2, 100, window.innerHeight, { isStatic: true });
+            const rightWall = Bodies.rectangle(window.innerWidth + 50, window.innerHeight / 2, 100, window.innerHeight, { isStatic: true });
+            World.add(world, [leftWall, rightWall]);
 
 
-        // --- Thirdweb Wallet and Payment Logic ---
-        connectWalletBtn.addEventListener('click', async () => {
-            try {
-                const address = await sdk.wallet.connect();
-                if(address) {
-                    walletAddress = address;
-                    connectWalletBtn.classList.add('hidden');
-                    sendPaymentBtn.classList.remove('hidden');
-                    walletAddressEl.textContent = `Connected: ${address.slice(0, 6)}...${address.slice(-4)}`;
-                    walletAddressEl.classList.remove('hidden');
+            // Add mouse control
+            const mouse = Mouse.create(render.canvas);
+            const mouseConstraint = MouseConstraint.create(engine, {
+                mouse: mouse,
+                constraint: {
+                    stiffness: 0.2,
+                    render: {
+                        visible: false
+                    }
                 }
-            } catch (error) {
-                console.error("Failed to connect wallet:", error);
-                alert("Failed to connect wallet. Please try again.");
+            });
+            World.add(world, mouseConstraint);
+
+            // Function to add balls
+            function addBall() {
+                const x = Math.random() * window.innerWidth;
+                const radius = Math.random() * 20 + 10;
+                const ball = Bodies.circle(x, -50, radius, {
+                    restitution: 0.8,
+                    render: {
+                        fillStyle: `hsl(${Math.random() * 360}, 100%, 70%)`
+                    }
+                });
+                World.add(world, ball);
             }
+
+            // Add balls periodically
+            setInterval(addBall, 200);
+            
+            // Handle window resize
+            window.addEventListener('resize', () => {
+                render.canvas.width = window.innerWidth;
+                render.canvas.height = window.innerHeight;
+                Matter.Body.setPosition(ground, { x: window.innerWidth / 2, y: window.innerHeight + 50 });
+                Matter.Body.setPosition(leftWall, { x: -50, y: window.innerHeight / 2 });
+                Matter.Body.setPosition(rightWall, { x: window.innerWidth + 50, y: window.innerHeight / 2 });
+            });
+
+
+            // --- Thirdweb Wallet and Payment Logic ---
+            connectWalletBtn.addEventListener('click', async () => {
+                try {
+                    console.log("Attempting to connect wallet...");
+                    const address = await sdk.wallet.connect();
+                    if(address) {
+                        walletAddress = address;
+                        connectWalletBtn.classList.add('hidden');
+                        sendPaymentBtn.classList.remove('hidden');
+                        walletAddressEl.textContent = `Connected: ${address.slice(0, 6)}...${address.slice(-4)}`;
+                        walletAddressEl.classList.remove('hidden');
+                        console.log("Wallet connected successfully:", address);
+                    }
+                } catch (error) {
+                    console.error("Failed to connect wallet:", error);
+                }
+            });
+
+            sendPaymentBtn.addEventListener('click', async () => {
+                if (!walletAddress) {
+                    console.error("Connect wallet button clicked, but no wallet address is set.");
+                    return;
+                }
+
+                try {
+                    const amount = '1.0'; // Example: sending 1 USDT
+                    sendPaymentBtn.disabled = true;
+                    sendPaymentBtn.textContent = 'Processing...';
+
+                    const contract = await sdk.getContract(usdtContractAddress);
+                    const { receipt } = await contract.erc20.transfer(receiverAddress, amount);
+                    
+                    console.log("Payment successful, transaction receipt:", receipt);
+                    // You can add a more visible success message on the UI here
+                } catch (error) {
+                    console.error("Payment failed:", error);
+                } finally {
+                    sendPaymentBtn.disabled = false;
+                    sendPaymentBtn.textContent = 'Send 1 USDT';
+                }
+            });
         });
-
-        sendPaymentBtn.addEventListener('click', async () => {
-            if (!walletAddress) {
-                alert("Please connect your wallet first.");
-                return;
-            }
-
-            try {
-                const amount = '1.0'; // Example: sending 1 USDT
-                sendPaymentBtn.disabled = true;
-                sendPaymentBtn.textContent = 'Processing...';
-
-                const contract = await sdk.getContract(usdtContractAddress);
-                const { receipt } = await contract.erc20.transfer(receiverAddress, amount);
-                
-                console.log("Payment successful, transaction receipt:", receipt);
-                alert(`Successfully sent ${amount} USDT!`);
-
-            } catch (error) {
-                console.error("Payment failed:", error);
-                alert("Payment failed. Please check the console and try again.");
-            } finally {
-                sendPaymentBtn.disabled = false;
-                sendPaymentBtn.textContent = 'Send 1 USDT';
-            }
-        });
-
     </script>
     <style>
         body, html {
