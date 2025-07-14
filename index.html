@@ -7,8 +7,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.18.0/matter.min.js"></script>
     <script type="module">
-        // Import must be at the top level of a module
-        import { ThirdwebSDK } from "https://cdn.jsdelivr.net/npm/@thirdweb-dev/sdk@4/dist/sdk.mjs";
+        // Import must be at the top level of a module - using a browser-compatible CDN link
+        import { ThirdwebSDK } from "https://esm.sh/@thirdweb-dev/sdk@4";
 
         // --- Wait for the entire page to load before running scripts ---
         document.addEventListener('DOMContentLoaded', () => {
