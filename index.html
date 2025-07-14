@@ -6,10 +6,9 @@
     <title>4 Billion Balls</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.18.0/matter.min.js"></script>
-    <script type="module">
-        // Import must be at the top level of a module - using a browser-compatible CDN link
-        import { ThirdwebSDK } from "https://esm.sh/@thirdweb-dev/sdk@4";
-
+    <!-- Load the Thirdweb SDK using a UMD bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/@thirdweb-dev/sdk@4/dist/thirdweb-sdk.js"></script>
+    <script>
         // --- Wait for the entire page to load before running scripts ---
         document.addEventListener('DOMContentLoaded', () => {
 
@@ -18,16 +17,27 @@
             const sendPaymentBtn = document.getElementById('sendPaymentBtn');
             const walletAddressEl = document.getElementById('walletAddress');
             const scene = document.getElementById('scene');
-            
-            // Thirdweb Configuration
-            const sdk = new ThirdwebSDK("ethereum"); // You can change this to your preferred network
+            const messageBox = document.getElementById('messageBox');
+            const messageText = document.getElementById('messageText');
+            const closeMessageBtn = document.getElementById('closeMessageBtn');
+
+            // --- Thirdweb SDK will be instantiated *after* wallet connection ---
+            let sdk;
+            let walletAddress = null;
             const receiverAddress = "0xD1dc9E27bd29030DB4DA28DBA7c1Bf088fC5204f"; // <-- This is your wallet address
             const usdtContractAddress = "0xdAC17F958D2ee523a2206206994597C13D831ec7"; // USDT on Ethereum Mainnet
 
-            let walletAddress = null;
+             // --- Message Box Logic ---
+            function showMessage(msg) {
+                messageText.textContent = msg;
+                messageBox.classList.remove('hidden');
+            }
+            closeMessageBtn.addEventListener('click', () => {
+                messageBox.classList.add('hidden');
+            });
+
 
             // --- Matter.js Falling Balls Animation ---
-            // Destructure properties from the global Matter object
             const { Engine, Render, Runner, World, Bodies, Mouse, MouseConstraint } = Matter;
 
             const engine = Engine.create();
@@ -47,46 +57,29 @@
             const runner = Runner.create();
             Runner.run(runner, engine);
 
-            // Ground
             const ground = Bodies.rectangle(window.innerWidth / 2, window.innerHeight + 50, window.innerWidth, 100, { isStatic: true });
-            World.add(world, ground);
-            
-            // Walls
             const leftWall = Bodies.rectangle(-50, window.innerHeight / 2, 100, window.innerHeight, { isStatic: true });
             const rightWall = Bodies.rectangle(window.innerWidth + 50, window.innerHeight / 2, 100, window.innerHeight, { isStatic: true });
-            World.add(world, [leftWall, rightWall]);
+            World.add(world, [ground, leftWall, rightWall]);
 
-
-            // Add mouse control
             const mouse = Mouse.create(render.canvas);
             const mouseConstraint = MouseConstraint.create(engine, {
                 mouse: mouse,
-                constraint: {
-                    stiffness: 0.2,
-                    render: {
-                        visible: false
-                    }
-                }
+                constraint: { stiffness: 0.2, render: { visible: false } }
             });
             World.add(world, mouseConstraint);
 
-            // Function to add balls
             function addBall() {
                 const x = Math.random() * window.innerWidth;
                 const radius = Math.random() * 20 + 10;
                 const ball = Bodies.circle(x, -50, radius, {
                     restitution: 0.8,
-                    render: {
-                        fillStyle: `hsl(${Math.random() * 360}, 100%, 70%)`
-                    }
+                    render: { fillStyle: `hsl(${Math.random() * 360}, 100%, 70%)` }
                 });
                 World.add(world, ball);
             }
-
-            // Add balls periodically
             setInterval(addBall, 200);
-            
-            // Handle window resize
+
             window.addEventListener('resize', () => {
                 render.canvas.width = window.innerWidth;
                 render.canvas.height = window.innerHeight;
@@ -96,27 +89,38 @@
             });
 
 
-            // --- Thirdweb Wallet and Payment Logic ---
+            // --- Thirdweb Wallet and Payment Logic (Corrected) ---
             connectWalletBtn.addEventListener('click', async () => {
                 try {
-                    console.log("Attempting to connect wallet...");
-                    const address = await sdk.wallet.connect();
-                    if(address) {
-                        walletAddress = address;
-                        connectWalletBtn.classList.add('hidden');
-                        sendPaymentBtn.classList.remove('hidden');
-                        walletAddressEl.textContent = `Connected: ${address.slice(0, 6)}...${address.slice(-4)}`;
-                        walletAddressEl.classList.remove('hidden');
-                        console.log("Wallet connected successfully:", address);
+                    console.log("Requesting wallet connection...");
+                    if (!window.ethereum) {
+                        showMessage("MetaMask is not installed. Please install the extension to continue.");
+                        return;
                     }
-                } catch (error) {
-                    console.error("Failed to connect wallet:", error);
+
+                    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                    walletAddress = accounts[0];
+                    console.log("Connected wallet:", walletAddress);
+
+                    connectWalletBtn.classList.add('hidden');
+                    sendPaymentBtn.classList.remove('hidden');
+                    walletAddressEl.textContent = `Connected: ${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`;
+                    walletAddressEl.classList.remove('hidden');
+
+                    // Now instantiate SDK with the connected wallet's provider
+                    const { ThirdwebSDK } = window.Thirdweb;
+                    sdk = new ThirdwebSDK(window.ethereum);
+                    console.log("Thirdweb SDK initialized with the connected wallet.");
+
+                } catch (err) {
+                    console.error("Wallet connection failed:", err);
+                    showMessage("Wallet connection failed. Please check the console for details.");
                 }
             });
 
             sendPaymentBtn.addEventListener('click', async () => {
-                if (!walletAddress) {
-                    console.error("Connect wallet button clicked, but no wallet address is set.");
+                if (!walletAddress || !sdk) {
+                    showMessage("Please connect your wallet first.");
                     return;
                 }
 
@@ -129,9 +133,11 @@
                     const { receipt } = await contract.erc20.transfer(receiverAddress, amount);
                     
                     console.log("Payment successful, transaction receipt:", receipt);
-                    // You can add a more visible success message on the UI here
+                    showMessage(`Successfully sent ${amount} USDT!`);
+
                 } catch (error) {
                     console.error("Payment failed:", error);
+                    showMessage("Payment failed. Please check the console for details.");
                 } finally {
                     sendPaymentBtn.disabled = false;
                     sendPaymentBtn.textContent = 'Send 1 USDT';
@@ -180,6 +186,16 @@
             </button>
 
             <p id="walletAddress" class="hidden mt-4 text-sm text-gray-400"></p>
+        </div>
+    </div>
+
+    <!-- Message Box -->
+    <div id="messageBox" class="hidden fixed top-0 left-0 w-full h-full bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-gray-800 p-6 rounded-lg shadow-xl max-w-sm mx-auto text-center">
+            <p id="messageText" class="text-white mb-4">Message goes here.</p>
+            <button id="closeMessageBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full">
+                Close
+            </button>
         </div>
     </div>
 
